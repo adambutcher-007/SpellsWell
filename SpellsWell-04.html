@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spells Well</title>
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --neon-pink: #ff00ff;
+            --neon-blue: #00ffff;
+            --glow-strength: 10px;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 95%;
+            max-width: 800px;
+            height: 95vh;
+            max-height: 600px;
+            background-color: #111;
+            border-radius: 20px;
+            box-shadow: 0 0 var(--glow-strength) var(--neon-blue), 0 0 calc(var(--glow-strength) * 2) var(--neon-blue);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #edit-mode, #play-mode {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: var(--neon-pink);
+            text-shadow: 0 0 var(--glow-strength) var(--neon-pink);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .button {
+            background-color: transparent;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            border-radius: 15px;
+            cursor: pointer;
+            text-shadow: 0 0 var(--glow-strength) var(--neon-green);
+            box-shadow: 0 0 var(--glow-strength) var(--neon-green);
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .button:hover {
+            background-color: var(--neon-green);
+            color: #000;
+        }
+        
+        #play-button {
+            font-size: 4rem;
+            padding: 40px 80px;
+        }
+
+        #word-input-container {
+            display: flex;
+            width: 80%;
+            justify-content: center;
+        }
+
+        #word-input {
+            width: 70%;
+            padding: 10px;
+            font-size: 1.5rem;
+            background-color: #222;
+            border: 2px solid var(--neon-pink);
+            border-radius: 10px;
+            color: #fff;
+            text-align: center;
+            margin-right: 10px;
+        }
+
+        #game-area {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+
+        #word-display {
+            /* font-size is now set dynamically via JS */
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 10px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 var(--glow-strength) var(--neon-blue);
+            flex-grow: 1;
+            width: 100%;
+            line-height: 1; /* Helps with vertical centering */
+        }
+        
+        #replay-audio-button {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5rem;
+            padding: 5px 10px;
+        }
+
+        #feedback {
+            font-size: 2rem;
+            margin-top: 20px;
+            min-height: 3rem;
+            text-align: center;
+        }
+
+        #bottom-buttons {
+            margin-top: 30px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background-color: #111;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 var(--glow-strength) var(--neon-pink), 0 0 calc(var(--glow-strength) * 2) var(--neon-pink);
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        #about-modal-content {
+            background-color: #111;
+            padding: 20px 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 var(--glow-strength) var(--neon-blue), 0 0 calc(var(--glow-strength) * 2) var(--neon-blue);
+            text-align: left;
+            font-size: 1rem;
+            max-width: 500px;
+        }
+        #about-modal-content h2 { color: var(--neon-pink); text-shadow: 0 0 5px var(--neon-pink); }
+        #about-modal-content p { margin: 15px 0; }
+        #about-modal-content strong { color: var(--neon-green); }
+        #license-link { 
+            color: var(--neon-blue); 
+            text-decoration: underline;
+            cursor: pointer;
+            text-shadow: 0 0 5px var(--neon-blue);
+        }
+
+        #top-right-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            z-index: 10;
+        }
+        #about-button, #mode-toggle {
+            font-size: 2rem;
+            cursor: pointer;
+            margin-left: 15px;
+        }
+        #about-button:hover, #mode-toggle:hover {
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        /* Edit Mode Specific Styles */
+        #word-table-container {
+            width: 80%;
+            height: 50%;
+            overflow-y: auto;
+            border: 1px solid var(--neon-blue);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        #word-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #word-table td {
+            padding: 10px;
+            font-size: 1.5rem;
+        }
+        #word-table tr:nth-child(even) {
+            background-color: #222;
+        }
+        .delete-word-btn {
+            background: none;
+            border: none;
+            color: #ff4d4d;
+            font-size: 1.5rem;
+            cursor: pointer;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        .file-ops-container {
+            position: relative;
+            display: inline-block;
+        }
+        #file-ops-dropdown {
+            display: none;
+            position: absolute;
+            background-color: #1a1a1a;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 10px;
+            border: 1px solid var(--neon-green);
+        }
+        #file-ops-dropdown button {
+            width: 100%;
+            text-align: left;
+        }
+        .file-ops-container:hover #file-ops-dropdown {
+            display: block;
+        }
+        #import-file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="top-right-controls">
+            <div id="about-button">💫</div>
+            <div id="mode-toggle">⚙️</div>
+        </div>
+
+        <div id="edit-mode" class="hidden">
+            <h1>Edit Words</h1>
+            <div id="word-input-container">
+                <input type="text" id="word-input" placeholder="Add a word">
+                <button class="button" id="add-word-button">Add</button>
+                <div class="file-ops-container">
+                    <button class="button" id="file-ops-button">💾</button>
+                    <div id="file-ops-dropdown">
+                        <button class="button" id="save-browser-button">Save to Browser</button>
+                        <button class="button" id="export-file-button">Export to File</button>
+                        <button class="button" id="import-file-button">Import from File</button>
+                    </div>
+                </div>
+                <input type="file" id="import-file-input" accept=".txt,.json">
+            </div>
+            <div id="word-table-container">
+                <table id="word-table">
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="play-mode">
+            <h1 id="game-title">Spells Well</h1>
+            <button class="button" id="play-button">Play</button>
+            <div id="game-area" class="hidden">
+                <button class="button" id="replay-audio-button">🔊</button>
+                <div id="word-display"></div>
+                <div id="feedback"></div>
+                <div id="bottom-buttons" class="hidden">
+                    <button class="button" id="next-button">Next</button>
+                    <button class="button" id="done-button">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="results-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Results</h2>
+            <p id="words-tried"></p>
+            <p id="correct-answers"></p>
+            <p id="percentage-correct"></p>
+            <button class="button" id="close-results-modal-button">Close</button>
+        </div>
+    </div>
+    
+    <div id="about-modal" class="modal hidden">
+        <div id="about-modal-content">
+            <h2>About Spells Well</h2>
+            <p><strong>App Name and Version:</strong> Spells Well v1.1.0</p>
+            <p><strong>Description:</strong> Spells Well is a game to help children to learn to spell! Parents choose appropriate words for their child, and children see how many words they can spell!</p>
+            <p><strong>Developer/Company Info:</strong> Adam N. Butcher | 360v | go360v@gmail.com</p>
+            <p><strong>Release Notes:</strong> Initial release</p>
+            <p><strong>Terms of Service and Privacy Policy:</strong> <a href="#" id="license-link">LICENSE</a></p>
+            <p><strong>Contact/Support Information:</strong> go360v@gmail.com</p>
+            <p><strong>Acknowledgments:</strong> Developed with the assistance of Google AI Studio.</p>
+            <button class="button" id="close-about-modal-button" style="display: block; margin: 20px auto 0;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const wordInput = document.getElementById('word-input');
+        const addWordButton = document.getElementById('add-word-button');
+        const wordTableBody = document.querySelector('#word-table tbody');
+        const playButton = document.getElementById('play-button');
+        const gameArea = document.getElementById('game-area');
+        const wordDisplay = document.getElementById('word-display');
+        const feedback = document.getElementById('feedback');
+        const replayAudioButton = document.getElementById('replay-audio-button');
+        const nextButton = document.getElementById('next-button');
+        const doneButton = document.getElementById('done-button');
+        const bottomButtons = document.getElementById('bottom-buttons');
+        const resultsModal = document.getElementById('results-modal');
+        const closeResultsModalButton = document.getElementById('close-results-modal-button');
+        const wordsTriedP = document.getElementById('words-tried');
+        const correctAnswersP = document.getElementById('correct-answers');
+        const percentageCorrectP = document.getElementById('percentage-correct');
+        const modeToggle = document.getElementById('mode-toggle');
+        const editMode = document.getElementById('edit-mode');
+        const playMode = document.getElementById('play-mode');
+        const gameTitle = document.getElementById('game-title');
+        const saveBrowserButton = document.getElementById('save-browser-button');
+        const exportFileButton = document.getElementById('export-file-button');
+        const importFileButton = document.getElementById('import-file-button');
+        const importFileInput = document.getElementById('import-file-input');
+        const aboutButton = document.getElementById('about-button');
+        const aboutModal = document.getElementById('about-modal');
+        const closeAboutModalButton = document.getElementById('close-about-modal-button');
+        const licenseLink = document.getElementById('license-link');
+
+        // State Variables
+        let words = JSON.parse(localStorage.getItem('spellswell_words')) || ['cat', 'dog', 'sun', 'moon'];
+        let chosenWord = '';
+        let typedWord = '';
+        let maxWordLength = 0;
+        let isFirstWord = true;
+        let wordsTried = 0;
+        let correctAnswers = 0;
+        const synth = window.speechSynthesis;
+
+        const LICENSE_TEXT = `SpellsWell Personal Use License
+
+Copyright (c) 2025 Adam N. Butcher / 360v. All rights reserved.
+
+This license governs the use of SpellsWell (the "Software"). By downloading, installing, or using the Software, you agree to be bound by the terms of this license.
+
+1. Grant of License:
+   The Software is provided free of charge for personal, non-commercial use only. You may install and use the Software on any device for personal purposes, subject to the terms of this license.
+
+2. Attribution:
+   You must give appropriate credit to Adam N. Butcher / 360v as the developer of the Software in any copy, distribution, or public display of the Software. The following attribution notice must be included in any copy of the Software or its documentation:
+   "SpellsWell was developed by Adam N. Butcher / 360v."
+
+3. Restrictions:
+   - You may not use the Software for commercial purposes, including but not limited to selling, licensing, or using the Software to generate revenue.
+   - You may not sell, sublicense, rent, lease, or otherwise distribute the Software for profit.
+   - You may not modify, adapt, reverse engineer, decompile, or create derivative works based on the Software without prior written permission from Adam N. Butcher / 360v.
+   - You may not remove or alter any copyright, attribution, or license notices included with the Software.
+
+4. Distribution:
+   You may distribute the Software to others for personal, non-commercial use, provided that:
+   - The Software is distributed in its original, unmodified form.
+   - This license and all attribution notices are included with any distributed copy.
+   - No fee is charged for the distribution.
+
+5. Ownership:
+   The Software is licensed, not sold. Adam N. Butcher / 360v retains all rights, title, and interest in the Software, including all intellectual property rights.
+
+6. No Warranty:
+   The Software is provided "as is" without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement. Adam N. Butcher / 360v is not liable for any damages arising from the use of the Software.
+
+7. Termination:
+   This license is effective until terminated. Your rights under this license will terminate automatically if you fail to comply with any of its terms. Upon termination, you must cease all use and distribution of the Software and destroy all copies in your possession.
+
+8. Governing Law:
+   This license shall be governed by and construed in accordance with the laws of the State of Minnesota, United States of America. Any disputes arising under this license shall be resolved in the courts of the State of Minnesota, United States of America.
+
+For questions or permissions beyond the scope of this license, contact go360v@gmail.com.
+
+Adam N. Butcher / 360v
+2025`;
+
+        // Functions
+        function renderWordTable() {
+            words.sort((a, b) => a.localeCompare(b));
+            wordTableBody.innerHTML = '';
+            words.forEach(word => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${word}</td>
+                    <td style="text-align: right;"><button class="delete-word-btn" data-word="${word}">❌</button></td>
+                `;
+                wordTableBody.appendChild(row);
+            });
+            setMaxWordLength();
+        }
+        
+        function saveWordsToBrowser() {
+            localStorage.setItem('spellswell_words', JSON.stringify(words));
+            console.log('Word list saved to browser!');
+        }
+
+        function addWord() {
+            const newWord = wordInput.value.trim().toLowerCase();
+            if (newWord && !words.includes(newWord)) {
+                words.push(newWord);
+                renderWordTable();
+                saveWordsToBrowser();
+                wordInput.value = '';
+            }
+        }
+
+        function removeWord(wordToRemove) {
+            words = words.filter(word => word !== wordToRemove);
+            renderWordTable();
+            saveWordsToBrowser();
+        }
+
+        function speak(text, rate = 1, onEndCallback = null) {
+            if (synth.speaking) synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = rate;
+            if (onEndCallback) utterance.onend = onEndCallback;
+            synth.speak(utterance);
+        }
+        
+        function spellWord(word, onFinishedSpelling, index = 0) {
+            if (index < word.length) {
+                speak(word[index], 1);
+                setTimeout(() => spellWord(word, onFinishedSpelling, index + 1), 1000);
+            } else if (onFinishedSpelling) {
+                onFinishedSpelling();
+            }
+        }
+
+        function calculateAndSetWordFontSize() {
+            const containerWidth = wordDisplay.offsetWidth;
+            const fontSize = Math.min(96, (containerWidth / chosenWord.length) * 0.8);
+            wordDisplay.style.fontSize = `${fontSize}px`;
+        }
+
+        function chooseWord() {
+            if (words.length === 0) {
+                feedback.textContent = "Please add words in Edit Mode first!";
+                return;
+            }
+            chosenWord = words[Math.floor(Math.random() * words.length)];
+            typedWord = '';
+            wordDisplay.textContent = '';
+            feedback.textContent = '';
+            bottomButtons.classList.add('hidden');
+            calculateAndSetWordFontSize();
+            const prompt = isFirstWord ? `Welcome. Spell the word ${chosenWord}` : `Spell the word, ${chosenWord}`;
+            speak(prompt);
+            isFirstWord = false;
+        }
+
+        function checkSpelling() {
+            wordsTried++;
+            if (typedWord.toLowerCase() === chosenWord.toLowerCase()) {
+                feedback.textContent = 'Correct!';
+                speak('That is correct!');
+                correctAnswers++;
+            } else {
+                feedback.textContent = `Incorrect. It's spelled: ${chosenWord}`;
+                speak('That is incorrect, the correct answer is:', 0.8, () => {
+                    spellWord(chosenWord, () => {
+                        setTimeout(() => speak(chosenWord), 500);
+                    });
+                });
+            }
+            bottomButtons.classList.remove('hidden');
+        }
+        
+        function setMaxWordLength() {
+            maxWordLength = words.reduce((max, word) => Math.max(max, word.length), 0);
+        }
+        
+        function downloadFile(content, fileName, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const anchor = document.createElement('a');
+            anchor.download = fileName;
+            anchor.href = window.URL.createObjectURL(blob);
+            anchor.click();
+            window.URL.revokeObjectURL(anchor.href);
+        }
+
+        // Event Listeners
+        playButton.addEventListener('click', () => {
+            playButton.classList.add('hidden');
+            gameTitle.classList.add('hidden');
+            gameArea.classList.remove('hidden');
+            isFirstWord = true;
+            chooseWord();
+        });
+
+        replayAudioButton.addEventListener('click', () => speak(chosenWord));
+        nextButton.addEventListener('click', chooseWord);
+
+        doneButton.addEventListener('click', () => {
+            wordsTriedP.textContent = `Words Tried: ${wordsTried}`;
+            correctAnswersP.textContent = `Correct Answers: ${correctAnswers}`;
+            const percentage = wordsTried > 0 ? ((correctAnswers / wordsTried) * 100).toFixed(0) : 0;
+            percentageCorrectP.textContent = `Percentage Correct: ${percentage}%`;
+            resultsModal.classList.remove('hidden');
+        });
+
+        closeResultsModalButton.addEventListener('click', () => {
+            resultsModal.classList.add('hidden');
+            playButton.classList.remove('hidden');
+            gameTitle.classList.remove('hidden');
+            gameArea.classList.add('hidden');
+            wordsTried = 0;
+            correctAnswers = 0;
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (gameArea.classList.contains('hidden') || !chosenWord || !bottomButtons.classList.contains('hidden')) return;
+            if (e.key === 'Enter') checkSpelling();
+            else if (e.key === 'Backspace') typedWord = typedWord.slice(0, -1);
+            else if (/^[a-zA-Z]$/.test(e.key) && typedWord.length < maxWordLength) typedWord += e.key;
+            wordDisplay.textContent = typedWord;
+        });
+        
+        modeToggle.addEventListener('click', () => {
+            editMode.classList.toggle('hidden');
+            playMode.classList.toggle('hidden');
+        });
+
+        addWordButton.addEventListener('click', addWord);
+        wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addWord(); });
+
+        wordTableBody.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-word-btn')) removeWord(e.target.dataset.word);
+        });
+
+        saveBrowserButton.addEventListener('click', saveWordsToBrowser);
+        exportFileButton.addEventListener('click', () => downloadFile(words.join('\n'), 'spells-well-words.txt', 'text/plain'));
+        importFileButton.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const newWords = event.target.result.split(/[\r\n]+/).filter(Boolean).map(w => w.trim().toLowerCase());
+                words = [...new Set([...words, ...newWords])];
+                renderWordTable();
+                saveWordsToBrowser();
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
+        closeAboutModalButton.addEventListener('click', () => aboutModal.classList.add('hidden'));
+        licenseLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            downloadFile(LICENSE_TEXT, 'LICENSE-SpellsWell.txt', 'text/plain');
+        });
+        
+        // Initial Setup
+        renderWordTable();
+    </script>
+</body>
+</html>
