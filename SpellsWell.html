@@ -296,7 +296,7 @@
         <div id="edit-mode" class="hidden">
             <h1>Edit Words</h1>
             <div id="word-input-container">
-                <input type="text" id="word-input" placeholder="Add a word">
+                <input type="text" id="word-input" placeholder="Add word(s)...">
                 <button class="button" id="add-word-button">Add</button>
                 <div class="file-ops-container">
                     <button class="button" id="file-ops-button">💾</button>
@@ -347,10 +347,10 @@
     <div id="about-modal" class="modal hidden">
         <div id="about-modal-content">
             <h2>About Spells Well</h2>
-            <p><strong>App Name and Version:</strong> Spells Well v1.1.7</p>
+            <p><strong>App Name and Version:</strong> Spells Well v1.1.8</p>
             <p><strong>Description:</strong> Spells Well is a game to help children to learn to spell! Parents choose appropriate words for their child, and children see how many words they can spell!</p>
             <p><strong>Developer/Company Info:</strong> Adam N. Butcher | 360v | go360v@gmail.com</p>
-            <p><strong>Release Notes:</strong> Fixed letter-by-letter spelling to a consistent 1-second rate. Replaying audio now correctly returns focus to the typing area.</p>
+            <p><strong>Release Notes:</strong> Added ability to paste and parse a list of words separated by spaces or new lines into the 'Add Word' field.</p>
             <p><strong>Terms of Service and Privacy Policy:</strong> <a href="#" id="license-link">LICENSE</a></p>
             <p><strong>Contact/Support Information:</strong> go360v@gmail.com</p>
             <p><strong>Acknowledgments:</strong> Developed with the assistance of Google AI Studio.</p>
@@ -422,7 +422,6 @@
         
         function spellWord(word, onFinishedSpelling, index = 0) {
             if (index < word.length) {
-                // Use a fixed rate of 1 for spelling and a fixed 1000ms timeout
                 speak(word[index], 1);
                 setTimeout(() => spellWord(word, onFinishedSpelling, index + 1), 1000);
             } else if (onFinishedSpelling) {
@@ -462,7 +461,7 @@
                 correctSound.play();
                 setTimeout(() => {
                     feedback.textContent = 'Correct!';
-                    speak('That is correct!');
+                    speak('That is correct!', speechRate);
                     correctAnswers++;
                 }, 1000);
             } else {
@@ -479,7 +478,7 @@
             bottomButtons.classList.remove('hidden');
         }
 
-        // Full function bodies are included inside initialize() to avoid repetition in this view
+        // Full function bodies are defined inside initialize()
         let renderWordTable, saveWordsToBrowser, addWord, removeWord, downloadFile;
 
         // Event Listeners
@@ -525,9 +524,8 @@
         });
         
         wordDisplayInput.addEventListener('input', (e) => {
-            // Speak typed letter
             if (e.inputType === 'insertText' && e.data) {
-                speak(e.data.toLowerCase(), speechRate * 1.5); // Speak typed letter slightly faster
+                speak(e.data.toLowerCase(), speechRate * 1.5);
             }
         });
 
@@ -589,13 +587,23 @@
             }
 
             addWord = function() {
-                const newWord = wordInput.value.trim().toLowerCase();
-                if (newWord && !words.includes(newWord)) {
-                    words.push(newWord);
+                const inputText = wordInput.value;
+                const potentialWords = inputText.split(/\s+/);
+                let wordsAdded = false;
+
+                potentialWords.forEach(word => {
+                    const cleanedWord = word.trim().toLowerCase();
+                    if (cleanedWord && !words.includes(cleanedWord)) {
+                        words.push(cleanedWord);
+                        wordsAdded = true;
+                    }
+                });
+
+                if (wordsAdded) {
                     renderWordTable();
                     saveWordsToBrowser();
-                    wordInput.value = '';
                 }
+                wordInput.value = '';
             }
 
             removeWord = function(wordToRemove) {
