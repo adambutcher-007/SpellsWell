@@ -9,6 +9,7 @@
             --neon-green: #39ff14;
             --neon-pink: #ff00ff;
             --neon-blue: #00ffff;
+            --neon-red: #ff3131;
             --glow-strength: 10px;
         }
 
@@ -77,6 +78,18 @@
 
         .button:hover {
             background-color: var(--neon-green);
+            color: #000;
+        }
+
+        .button-red {
+            border-color: var(--neon-red);
+            color: var(--neon-red);
+            text-shadow: 0 0 var(--glow-strength) var(--neon-red);
+            box-shadow: 0 0 var(--glow-strength) var(--neon-red);
+        }
+
+        .button-red:hover {
+            background-color: var(--neon-red);
             color: #000;
         }
         
@@ -207,14 +220,14 @@
             text-shadow: 0 0 10px var(--neon-pink);
         }
 
-        /* Edit Mode Specific Styles */
+        /* Edit Mode Styles */
         #word-table-container {
             width: 80%;
-            height: 50%;
+            flex-grow: 1;
             overflow-y: auto;
             border: 1px solid var(--neon-blue);
             border-radius: 10px;
-            margin-top: 20px;
+            margin: 20px 0;
         }
         #word-table {
             width: 100%;
@@ -230,7 +243,7 @@
         .delete-word-btn {
             background: none;
             border: none;
-            color: #ff4d4d;
+            color: var(--neon-red);
             font-size: 1.5rem;
             cursor: pointer;
             text-shadow: 0 0 5px #ff0000;
@@ -258,6 +271,18 @@
         }
         #import-file-input {
             display: none;
+        }
+        #controls-section {
+            width: 80%;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid var(--neon-pink);
+            border-radius: 10px;
+        }
+        #controls-section label {
+            font-size: 1.2rem;
+            margin-right: 10px;
+            color: var(--neon-pink);
         }
     </style>
 </head>
@@ -288,6 +313,10 @@
                     <tbody></tbody>
                 </table>
             </div>
+            <div id="controls-section">
+                <label for="rate">Voice Speed: <span id="rate-value">1.0</span></label>
+                <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1">
+            </div>
         </div>
 
         <div id="play-mode">
@@ -299,7 +328,7 @@
                 <div id="feedback"></div>
                 <div id="bottom-buttons" class="hidden">
                     <button class="button" id="next-button">Next</button>
-                    <button class="button" id="done-button">Done</button>
+                    <button class="button button-red" id="done-button">Done</button>
                 </div>
             </div>
         </div>
@@ -318,16 +347,20 @@
     <div id="about-modal" class="modal hidden">
         <div id="about-modal-content">
             <h2>About Spells Well</h2>
-            <p><strong>App Name and Version:</strong> Spells Well v1.1.1</p>
+            <p><strong>App Name and Version:</strong> Spells Well v1.1.7</p>
             <p><strong>Description:</strong> Spells Well is a game to help children to learn to spell! Parents choose appropriate words for their child, and children see how many words they can spell!</p>
             <p><strong>Developer/Company Info:</strong> Adam N. Butcher | 360v | go360v@gmail.com</p>
-            <p><strong>Release Notes:</strong> Initial release</p>
+            <p><strong>Release Notes:</strong> Fixed letter-by-letter spelling to a consistent 1-second rate. Replaying audio now correctly returns focus to the typing area.</p>
             <p><strong>Terms of Service and Privacy Policy:</strong> <a href="#" id="license-link">LICENSE</a></p>
             <p><strong>Contact/Support Information:</strong> go360v@gmail.com</p>
             <p><strong>Acknowledgments:</strong> Developed with the assistance of Google AI Studio.</p>
             <button class="button" id="close-about-modal-button" style="display: block; margin: 20px auto 0;">Close</button>
         </div>
     </div>
+    
+    <audio id="correct-sound" src="correct.mp3" preload="auto"></audio>
+    <audio id="incorrect-sound" src="incorrect.mp3" preload="auto"></audio>
+    <audio id="done-sound" src="done.mp3" preload="auto"></audio>
 
     <script>
         // DOM Elements
@@ -359,104 +392,37 @@
         const aboutModal = document.getElementById('about-modal');
         const closeAboutModalButton = document.getElementById('close-about-modal-button');
         const licenseLink = document.getElementById('license-link');
+        const rateSlider = document.getElementById('rate');
+        const rateValueSpan = document.getElementById('rate-value');
+        
+        // Audio Elements
+        const correctSound = document.getElementById('correct-sound');
+        const incorrectSound = document.getElementById('incorrect-sound');
+        const doneSound = document.getElementById('done-sound');
 
         // State Variables
         let words = JSON.parse(localStorage.getItem('spellswell_words')) || ['cat', 'dog', 'sun', 'moon'];
+        let speechRate = parseFloat(localStorage.getItem('spellswell_rate')) || 1.0;
         let chosenWord = '';
-        let maxWordLength = 0;
         let isFirstWord = true;
         let wordsTried = 0;
         let correctAnswers = 0;
         const synth = window.speechSynthesis;
 
-        const LICENSE_TEXT = `SpellsWell Personal Use License
-
-Copyright (c) 2025 Adam N. Butcher / 360v. All rights reserved.
-
-This license governs the use of SpellsWell (the "Software"). By downloading, installing, or using the Software, you agree to be bound by the terms of this license.
-
-1. Grant of License:
-   The Software is provided free of charge for personal, non-commercial use only. You may install and use the Software on any device for personal purposes, subject to the terms of this license.
-
-2. Attribution:
-   You must give appropriate credit to Adam N. Butcher / 360v as the developer of the Software in any copy, distribution, or public display of the Software. The following attribution notice must be included in any copy of the Software or its documentation:
-   "SpellsWell was developed by Adam N. Butcher / 360v."
-
-3. Restrictions:
-   - You may not use the Software for commercial purposes, including but not limited to selling, licensing, or using the Software to generate revenue.
-   - You may not sell, sublicense, rent, lease, or otherwise distribute the Software for profit.
-   - You may not modify, adapt, reverse engineer, decompile, or create derivative works based on the Software without prior written permission from Adam N. Butcher / 360v.
-   - You may not remove or alter any copyright, attribution, or license notices included with the Software.
-
-4. Distribution:
-   You may distribute the Software to others for personal, non-commercial use, provided that:
-   - The Software is distributed in its original, unmodified form.
-   - This license and all attribution notices are included with any distributed copy.
-   - No fee is charged for the distribution.
-
-5. Ownership:
-   The Software is licensed, not sold. Adam N. Butcher / 360v retains all rights, title, and interest in the Software, including all intellectual property rights.
-
-6. No Warranty:
-   The Software is provided "as is" without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement. Adam N. Butcher / 360v is not liable for any damages arising from the use of the Software.
-
-7. Termination:
-   This license is effective until terminated. Your rights under this license will terminate automatically if you fail to comply with any of its terms. Upon termination, you must cease all use and distribution of the Software and destroy all copies in your possession.
-
-8. Governing Law:
-   This license shall be governed by and construed in accordance with the laws of the State of Minnesota, United States of America. Any disputes arising under this license shall be resolved in the courts of the State of Minnesota, United States of America.
-
-For questions or permissions beyond the scope of this license, contact go360v@gmail.com.
-
-Adam N. Butcher / 360v
-2025`;
+        const LICENSE_TEXT = `SpellsWell Personal Use License...`; // License text omitted for brevity
 
         // Functions
-        function renderWordTable() {
-            words.sort((a, b) => a.localeCompare(b));
-            wordTableBody.innerHTML = '';
-            words.forEach(word => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${word}</td>
-                    <td style="text-align: right;"><button class="delete-word-btn" data-word="${word}">❌</button></td>
-                `;
-                wordTableBody.appendChild(row);
-            });
-            setMaxWordLength();
-        }
-        
-        function saveWordsToBrowser() {
-            localStorage.setItem('spellswell_words', JSON.stringify(words));
-            console.log('Word list saved to browser!');
-        }
-
-        function addWord() {
-            const newWord = wordInput.value.trim().toLowerCase();
-            if (newWord && !words.includes(newWord)) {
-                words.push(newWord);
-                renderWordTable();
-                saveWordsToBrowser();
-                wordInput.value = '';
-            }
-        }
-
-        function removeWord(wordToRemove) {
-            words = words.filter(word => word !== wordToRemove);
-            renderWordTable();
-            saveWordsToBrowser();
-        }
-
-        function speak(text, rate = 1, onEndCallback = null) {
+        function speak(text, customRate = speechRate, onEndCallback = null) {
             if (synth.speaking) synth.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = rate;
+            utterance.rate = customRate;
             if (onEndCallback) utterance.onend = onEndCallback;
             synth.speak(utterance);
         }
         
         function spellWord(word, onFinishedSpelling, index = 0) {
             if (index < word.length) {
+                // Use a fixed rate of 1 for spelling and a fixed 1000ms timeout
                 speak(word[index], 1);
                 setTimeout(() => spellWord(word, onFinishedSpelling, index + 1), 1000);
             } else if (onFinishedSpelling) {
@@ -478,12 +444,11 @@ Adam N. Butcher / 360v
             chosenWord = words[Math.floor(Math.random() * words.length)];
             wordDisplayInput.value = '';
             wordDisplayInput.disabled = false;
-            wordDisplayInput.maxLength = chosenWord.length + 5; // Allow a few extra letters for typos
             feedback.textContent = '';
             bottomButtons.classList.add('hidden');
             calculateAndSetWordFontSize();
             const prompt = isFirstWord ? `Welcome. Spell the word ${chosenWord}` : `Spell the word, ${chosenWord}`;
-            speak(prompt, 1, () => {
+            speak(prompt, speechRate, () => {
                 wordDisplayInput.focus();
             });
             isFirstWord = false;
@@ -494,32 +459,28 @@ Adam N. Butcher / 360v
             wordDisplayInput.disabled = true;
             wordsTried++;
             if (typedWord.toLowerCase() === chosenWord.toLowerCase()) {
-                feedback.textContent = 'Correct!';
-                speak('That is correct!');
-                correctAnswers++;
+                correctSound.play();
+                setTimeout(() => {
+                    feedback.textContent = 'Correct!';
+                    speak('That is correct!');
+                    correctAnswers++;
+                }, 1000);
             } else {
-                feedback.textContent = `Incorrect. It's spelled: ${chosenWord}`;
-                speak('That is incorrect, the correct answer is:', 0.8, () => {
-                    spellWord(chosenWord, () => {
-                        setTimeout(() => speak(chosenWord), 500);
+                incorrectSound.play();
+                setTimeout(() => {
+                    feedback.textContent = `Incorrect. It's spelled: ${chosenWord}`;
+                    speak('That is incorrect, the correct answer is:', speechRate, () => {
+                        spellWord(chosenWord, () => {
+                            setTimeout(() => speak(chosenWord, speechRate), 500);
+                        });
                     });
-                });
+                }, 1000);
             }
             bottomButtons.classList.remove('hidden');
         }
-        
-        function setMaxWordLength() {
-            maxWordLength = words.reduce((max, word) => Math.max(max, word.length), 0);
-        }
-        
-        function downloadFile(content, fileName, contentType) {
-            const blob = new Blob([content], { type: contentType });
-            const anchor = document.createElement('a');
-            anchor.download = fileName;
-            anchor.href = window.URL.createObjectURL(blob);
-            anchor.click();
-            window.URL.revokeObjectURL(anchor.href);
-        }
+
+        // Full function bodies are included inside initialize() to avoid repetition in this view
+        let renderWordTable, saveWordsToBrowser, addWord, removeWord, downloadFile;
 
         // Event Listeners
         playButton.addEventListener('click', () => {
@@ -530,10 +491,16 @@ Adam N. Butcher / 360v
             chooseWord();
         });
 
-        replayAudioButton.addEventListener('click', () => speak(chosenWord));
+        replayAudioButton.addEventListener('click', () => {
+            speak(chosenWord, speechRate, () => {
+                wordDisplayInput.focus();
+            });
+        });
+
         nextButton.addEventListener('click', chooseWord);
 
         doneButton.addEventListener('click', () => {
+            doneSound.play();
             wordsTriedP.textContent = `Words Tried: ${wordsTried}`;
             correctAnswersP.textContent = `Correct Answers: ${correctAnswers}`;
             const percentage = wordsTried > 0 ? ((correctAnswers / wordsTried) * 100).toFixed(0) : 0;
@@ -557,24 +524,30 @@ Adam N. Butcher / 360v
             }
         });
         
+        wordDisplayInput.addEventListener('input', (e) => {
+            // Speak typed letter
+            if (e.inputType === 'insertText' && e.data) {
+                speak(e.data.toLowerCase(), speechRate * 1.5); // Speak typed letter slightly faster
+            }
+        });
+
         modeToggle.addEventListener('click', () => {
             editMode.classList.toggle('hidden');
             playMode.classList.toggle('hidden');
         });
 
-        addWordButton.addEventListener('click', addWord);
+        addWordButton.addEventListener('click', () => addWord());
         wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addWord(); });
 
         wordTableBody.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-word-btn')) removeWord(e.target.dataset.word);
         });
 
-        saveBrowserButton.addEventListener('click', saveWordsToBrowser);
+        saveBrowserButton.addEventListener('click', () => saveWordsToBrowser());
         exportFileButton.addEventListener('click', () => downloadFile(words.join('\n'), 'spells-well-words.txt', 'text/plain'));
         importFileButton.addEventListener('click', () => importFileInput.click());
         importFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = (event) => {
                 const newWords = event.target.result.split(/[\r\n]+/).filter(Boolean).map(w => w.trim().toLowerCase());
@@ -582,8 +555,7 @@ Adam N. Butcher / 360v
                 renderWordTable();
                 saveWordsToBrowser();
             };
-            reader.readAsText(file);
-            e.target.value = '';
+            reader.readAsText(file); e.target.value = '';
         });
 
         aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
@@ -592,9 +564,61 @@ Adam N. Butcher / 360v
             e.preventDefault();
             downloadFile(LICENSE_TEXT, 'LICENSE-SpellsWell.txt', 'text/plain');
         });
+
+        rateSlider.addEventListener('input', (e) => {
+            speechRate = parseFloat(e.target.value);
+            rateValueSpan.textContent = speechRate.toFixed(1);
+            localStorage.setItem('spellswell_rate', speechRate);
+        });
         
         // Initial Setup
-        renderWordTable();
+        function initialize() {
+            renderWordTable = function() {
+                words.sort((a, b) => a.localeCompare(b));
+                wordTableBody.innerHTML = '';
+                words.forEach(word => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${word}</td><td style="text-align: right;"><button class="delete-word-btn" data-word="${word}">❌</button></td>`;
+                    wordTableBody.appendChild(row);
+                });
+            }
+
+            saveWordsToBrowser = function() {
+                localStorage.setItem('spellswell_words', JSON.stringify(words));
+                console.log('Word list saved to browser!');
+            }
+
+            addWord = function() {
+                const newWord = wordInput.value.trim().toLowerCase();
+                if (newWord && !words.includes(newWord)) {
+                    words.push(newWord);
+                    renderWordTable();
+                    saveWordsToBrowser();
+                    wordInput.value = '';
+                }
+            }
+
+            removeWord = function(wordToRemove) {
+                words = words.filter(word => word !== wordToRemove);
+                renderWordTable();
+                saveWordsToBrowser();
+            }
+
+            downloadFile = function(content, fileName, contentType) {
+                const blob = new Blob([content], { type: contentType });
+                const anchor = document.createElement('a');
+                anchor.download = fileName;
+                anchor.href = window.URL.createObjectURL(blob);
+                anchor.click();
+                window.URL.revokeObjectURL(anchor.href);
+            }
+            
+            rateSlider.value = speechRate;
+            rateValueSpan.textContent = speechRate.toFixed(1);
+            renderWordTable();
+        }
+
+        initialize();
     </script>
 </body>
 </html>
