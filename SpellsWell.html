@@ -10,6 +10,7 @@
             --neon-pink: #ff00ff;
             --neon-blue: #00ffff;
             --neon-red: #ff3131;
+            --neon-purple: #be00ff;
             --glow-strength: 10px;
         }
 
@@ -123,6 +124,7 @@
             align-items: center;
             height: 100%;
             width: 100%;
+            position: relative;
         }
 
         #word-display-input {
@@ -141,6 +143,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: color 0.3s ease;
         }
         
         #top-play-buttons {
@@ -154,6 +157,15 @@
         #replay-audio-button, #define-word-button {
             font-size: 1.5rem;
             padding: 5px 10px;
+        }
+
+        #word-length-display {
+            position: absolute;
+            top: 25px;
+            left: 20px;
+            font-size: 1.2rem;
+            color: var(--neon-purple);
+            text-shadow: 0 0 5px var(--neon-purple);
         }
 
         #feedback {
@@ -292,8 +304,15 @@
             padding: 10px;
             border: 1px solid var(--neon-pink);
             border-radius: 10px;
+            text-align: center;
         }
-        #controls-section label {
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 5px 0;
+        }
+        .control-group label {
             font-size: 1.2rem;
             margin-right: 10px;
             color: var(--neon-pink);
@@ -330,8 +349,18 @@
                 </table>
             </div>
             <div id="controls-section">
-                <label for="rate">Voice Speed: <span id="rate-value">1.0</span></label>
-                <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1">
+                <div class="control-group">
+                    <label for="rate">Voice Speed: <span id="rate-value">1.0</span></label>
+                    <input type="range" id="rate" min="0.5" max="2" value="1" step="0.1">
+                </div>
+                <div class="control-group">
+                    <input type="checkbox" id="show-length-checkbox">
+                    <label for="show-length-checkbox">Show Word Length</label>
+                </div>
+                 <div class="control-group">
+                    <input type="checkbox" id="color-tracking-checkbox">
+                    <label for="color-tracking-checkbox">Color Tracking</label>
+                </div>
             </div>
         </div>
 
@@ -339,6 +368,7 @@
             <h1 id="game-title">Spells Well</h1>
             <button class="button" id="play-button">Play</button>
             <div id="game-area" class="hidden">
+                <div id="word-length-display" class="hidden"></div>
                 <div id="top-play-buttons">
                     <button class="button" id="replay-audio-button">🔊</button>
                     <button class="button" id="define-word-button">📖</button>
@@ -366,10 +396,10 @@
     <div id="about-modal" class="modal hidden">
         <div id="about-modal-content">
             <h2>About Spells Well</h2>
-            <p><strong>App Name and Version:</strong> Spells Well v1.1.10</p>
+            <p><strong>App Name and Version:</strong> Spells Well v1.1.11</p>
             <p><strong>Description:</strong> Spells Well is a game to help children to learn to spell! Parents choose appropriate words for their child, and children see how many words they can spell!</p>
             <p><strong>Developer/Company Info:</strong> Adam N. Butcher | 360v | go360v@gmail.com</p>
-            <p><strong>Release Notes:</strong> Added a 'Define' button to look up and read the definition of the current word.</p>
+            <p><strong>Release Notes:</strong> Added optional hints: "Show Word Length" and "Color Tracking" for immediate feedback on typos.</p>
             <p><strong>Terms of Service and Privacy Policy:</strong> <a href="#" id="license-link">LICENSE</a></p>
             <p><strong>Contact/Support Information:</strong> go360v@gmail.com</p>
             <p><strong>Acknowledgments:</strong> Developed with the assistance of Google AI Studio.</p>
@@ -415,6 +445,9 @@
         const licenseLink = document.getElementById('license-link');
         const rateSlider = document.getElementById('rate');
         const rateValueSpan = document.getElementById('rate-value');
+        const showLengthCheckbox = document.getElementById('show-length-checkbox');
+        const colorTrackingCheckbox = document.getElementById('color-tracking-checkbox');
+        const wordLengthDisplay = document.getElementById('word-length-display');
         
         // Audio Elements
         const correctSound = document.getElementById('correct-sound');
@@ -424,6 +457,8 @@
         // State Variables
         let words = JSON.parse(localStorage.getItem('spellswell_words')) || ['cat', 'dog', 'sun', 'moon'];
         let speechRate = parseFloat(localStorage.getItem('spellswell_rate')) || 1.0;
+        let showWordLength = JSON.parse(localStorage.getItem('spellswell_showLength')) || false;
+        let colorTrackingEnabled = JSON.parse(localStorage.getItem('spellswell_colorTracking')) || false;
         let chosenWord = '';
         let isFirstWord = true;
         let wordsTried = 0;
@@ -455,12 +490,9 @@
             const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${chosenWord}`;
             try {
                 const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Definition not found');
-                }
+                if (!response.ok) throw new Error('Definition not found');
                 const data = await response.json();
                 const definition = data?.[0]?.meanings?.[0]?.definitions?.[0]?.definition;
-
                 if (definition) {
                     speak(definition, speechRate, () => wordDisplayInput.focus());
                 } else {
@@ -486,8 +518,17 @@
             chosenWord = words[Math.floor(Math.random() * words.length)];
             wordDisplayInput.value = '';
             wordDisplayInput.disabled = false;
+            wordDisplayInput.style.color = 'var(--neon-blue)';
             feedback.textContent = '';
             bottomButtons.classList.add('hidden');
+            
+            if (showWordLength) {
+                wordLengthDisplay.textContent = `Length: ${chosenWord.length}`;
+                wordLengthDisplay.classList.remove('hidden');
+            } else {
+                wordLengthDisplay.classList.add('hidden');
+            }
+
             calculateAndSetWordFontSize();
             const prompt = isFirstWord ? `Welcome to Spells Well. Spell the word ${chosenWord}` : `Spell the word, ${chosenWord}`;
             speak(prompt, speechRate, () => {
@@ -499,6 +540,7 @@
         function checkSpelling() {
             const typedWord = wordDisplayInput.value.trim();
             wordDisplayInput.disabled = true;
+            wordDisplayInput.style.color = 'var(--neon-blue)'; // Reset color on check
             wordsTried++;
             if (typedWord.toLowerCase() === chosenWord.toLowerCase()) {
                 correctSound.play();
@@ -540,7 +582,6 @@
         });
 
         defineWordButton.addEventListener('click', getAndSpeakDefinition);
-
         nextButton.addEventListener('click', chooseWord);
 
         doneButton.addEventListener('click', () => {
@@ -569,6 +610,12 @@
         });
         
         wordDisplayInput.addEventListener('input', (e) => {
+            if (colorTrackingEnabled) {
+                const typedValue = wordDisplayInput.value;
+                wordDisplayInput.style.color = chosenWord.toLowerCase().startsWith(typedValue.toLowerCase()) 
+                    ? 'var(--neon-blue)' 
+                    : 'var(--neon-red)';
+            }
             if (e.inputType === 'insertText' && e.data) {
                 speak(e.data.toLowerCase(), speechRate * 1.5);
             }
@@ -581,7 +628,6 @@
 
         addWordButton.addEventListener('click', () => addWord());
         wordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addWord(); });
-
         wordTableBody.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-word-btn')) removeWord(e.target.dataset.word);
         });
@@ -602,7 +648,6 @@
         });
         
         clearListButton.addEventListener('click', () => clearWordList());
-
         aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
         closeAboutModalButton.addEventListener('click', () => aboutModal.classList.add('hidden'));
         licenseLink.addEventListener('click', (e) => {
@@ -614,6 +659,16 @@
             speechRate = parseFloat(e.target.value);
             rateValueSpan.textContent = speechRate.toFixed(1);
             localStorage.setItem('spellswell_rate', speechRate);
+        });
+        
+        showLengthCheckbox.addEventListener('change', (e) => {
+            showWordLength = e.target.checked;
+            localStorage.setItem('spellswell_showLength', showWordLength);
+        });
+
+        colorTrackingCheckbox.addEventListener('change', (e) => {
+            colorTrackingEnabled = e.target.checked;
+            localStorage.setItem('spellswell_colorTracking', colorTrackingEnabled);
         });
         
         // Initial Setup
@@ -633,13 +688,10 @@
                 console.log('Word list saved to browser!');
             }
 
-
-
             addWord = function() {
                 const inputText = wordInput.value;
                 const potentialWords = inputText.split(/\s+/);
                 let wordsAdded = false;
-
                 potentialWords.forEach(word => {
                     const cleanedWord = word.trim().toLowerCase();
                     if (cleanedWord && !words.includes(cleanedWord)) {
@@ -647,7 +699,6 @@
                         wordsAdded = true;
                     }
                 });
-
                 if (wordsAdded) {
                     renderWordTable();
                     saveWordsToBrowser();
@@ -680,6 +731,8 @@
             
             rateSlider.value = speechRate;
             rateValueSpan.textContent = speechRate.toFixed(1);
+            showLengthCheckbox.checked = showWordLength;
+            colorTrackingCheckbox.checked = colorTrackingEnabled;
             renderWordTable();
         }
 
