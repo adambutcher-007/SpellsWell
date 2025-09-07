@@ -674,7 +674,7 @@
         
         async function loadCuratedLists() {
             try {
-                const response = await fetch('SpellsWell-CuratedLists.json');
+                const response = await fetch('/SpellsWell/SpellsWell-CuratedLists.json');
                 if (!response.ok) throw new Error('Network response was not ok.');
                 curatedData = await response.json();
                 curatedListsContainer.innerHTML = ''; // Clear previous
