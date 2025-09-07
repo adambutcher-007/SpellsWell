@@ -30,7 +30,7 @@
             width: 95%;
             max-width: 800px;
             height: 95vh;
-            max-height: 600px;
+            max-height: 700px;
             background-color: #111;
             border-radius: 20px;
             box-shadow: 0 0 var(--glow-strength) var(--neon-blue), 0 0 calc(var(--glow-strength) * 2) var(--neon-blue);
@@ -47,7 +47,7 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: space-around;
+            justify-content: flex-start;
             align-items: center;
         }
 
@@ -55,13 +55,15 @@
             display: none !important;
         }
 
-        h1 {
+        h1, h2 {
             font-size: 3rem;
             color: var(--neon-pink);
             text-shadow: 0 0 var(--glow-strength) var(--neon-pink);
-            margin-bottom: 20px;
+            margin: 10px 0 20px 0;
             text-align: center;
         }
+        
+        h2 { font-size: 1.5rem; margin-top: 20px; }
 
         .button {
             background-color: transparent;
@@ -97,6 +99,7 @@
         #play-button {
             font-size: 4rem;
             padding: 40px 80px;
+            margin-top: 20vh;
         }
 
         #word-input-container {
@@ -237,13 +240,27 @@
         }
 
         /* Edit Mode Styles */
-        #word-table-container {
-            width: 80%;
+        #edit-mode-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .edit-column {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #word-table-container, #curated-lists-container {
+            width: 100%;
             flex-grow: 1;
             overflow-y: auto;
             border: 1px solid var(--neon-blue);
             border-radius: 10px;
-            margin: 20px 0;
+            padding: 10px;
         }
         #word-table {
             width: 100%;
@@ -299,7 +316,7 @@
             display: none;
         }
         #controls-section {
-            width: 80%;
+            width: 100%;
             margin-top: 10px;
             padding: 10px;
             border: 1px solid var(--neon-pink);
@@ -316,6 +333,36 @@
             font-size: 1.2rem;
             margin-right: 10px;
             color: var(--neon-pink);
+        }
+
+        /* Curated List Styles */
+        #curated-lists-container details {
+            border: 1px solid var(--neon-purple);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        #curated-lists-container summary {
+            font-size: 1.2rem;
+            padding: 10px;
+            cursor: pointer;
+            outline: none;
+            color: var(--neon-purple);
+            text-shadow: 0 0 5px var(--neon-purple);
+        }
+        .curated-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-top: 1px solid #333;
+        }
+        .curated-item-name {
+            font-size: 1.1rem;
+        }
+        .add-curated-btn {
+            padding: 5px 10px;
+            font-size: 1rem;
+            margin: 0;
         }
     </style>
 </head>
@@ -343,11 +390,22 @@
                 </div>
                 <input type="file" id="import-file-input" accept=".txt,.json">
             </div>
-            <div id="word-table-container">
-                <table id="word-table">
-                    <tbody></tbody>
-                </table>
+            
+            <div id="edit-mode-layout">
+                <div class="edit-column">
+                    <h2>My Word List</h2>
+                    <div id="word-table-container">
+                        <table id="word-table">
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="edit-column">
+                    <h2>Add From Curated Lists</h2>
+                    <div id="curated-lists-container"></div>
+                </div>
             </div>
+
             <div id="controls-section">
                 <div class="control-group">
                     <label for="rate">Voice Speed: <span id="rate-value">1.0</span></label>
@@ -396,10 +454,10 @@
     <div id="about-modal" class="modal hidden">
         <div id="about-modal-content">
             <h2>About Spells Well</h2>
-            <p><strong>App Name and Version:</strong> Spells Well v1.1.11</p>
+            <p><strong>App Name and Version:</strong> Spells Well v1.1.14</p>
             <p><strong>Description:</strong> Spells Well is a game to help children to learn to spell! Parents choose appropriate words for their child, and children see how many words they can spell!</p>
             <p><strong>Developer/Company Info:</strong> Adam N. Butcher | 360v | go360v@gmail.com</p>
-            <p><strong>Release Notes:</strong> Added optional hints: "Show Word Length" and "Color Tracking" for immediate feedback on typos.</p>
+            <p><strong>Release Notes:</strong> Added curated word lists that can be loaded dynamically. Parents can now easily add pre-made lists to their game.</p>
             <p><strong>Terms of Service and Privacy Policy:</strong> <a href="#" id="license-link">LICENSE</a></p>
             <p><strong>Contact/Support Information:</strong> go360v@gmail.com</p>
             <p><strong>Acknowledgments:</strong> Developed with the assistance of Google AI Studio.</p>
@@ -448,6 +506,7 @@
         const showLengthCheckbox = document.getElementById('show-length-checkbox');
         const colorTrackingCheckbox = document.getElementById('color-tracking-checkbox');
         const wordLengthDisplay = document.getElementById('word-length-display');
+        const curatedListsContainer = document.getElementById('curated-lists-container');
         
         // Audio Elements
         const correctSound = document.getElementById('correct-sound');
@@ -459,6 +518,7 @@
         let speechRate = parseFloat(localStorage.getItem('spellswell_rate')) || 1.0;
         let showWordLength = JSON.parse(localStorage.getItem('spellswell_showLength')) || false;
         let colorTrackingEnabled = JSON.parse(localStorage.getItem('spellswell_colorTracking')) || false;
+        let curatedData = {};
         let chosenWord = '';
         let isFirstWord = true;
         let wordsTried = 0;
@@ -540,7 +600,7 @@
         function checkSpelling() {
             const typedWord = wordDisplayInput.value.trim();
             wordDisplayInput.disabled = true;
-            wordDisplayInput.style.color = 'var(--neon-blue)'; // Reset color on check
+            wordDisplayInput.style.color = 'var(--neon-blue)';
             wordsTried++;
             if (typedWord.toLowerCase() === chosenWord.toLowerCase()) {
                 correctSound.play();
@@ -563,7 +623,69 @@
             bottomButtons.classList.remove('hidden');
         }
 
-        // Full function bodies are defined inside initialize()
+        function buildCuratedListsUI(data, container, pathPrefix = '') {
+            for (const key in data) {
+                const value = data[key];
+                const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+
+                if (Array.isArray(value)) {
+                    // It's a direct list
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'curated-item';
+                    itemDiv.innerHTML = `<span class="curated-item-name">${key}</span><button class="button add-curated-btn" data-path="${currentPath}">Add</button>`;
+                    container.appendChild(itemDiv);
+                } else if (typeof value === 'object') {
+                    // It's a category with sub-lists
+                    const details = document.createElement('details');
+                    const summary = document.createElement('summary');
+                    summary.textContent = key;
+                    details.appendChild(summary);
+                    buildCuratedListsUI(value, details, currentPath);
+                    container.appendChild(details);
+                }
+            }
+        }
+
+        function getWordsFromPath(path) {
+            const parts = path.split('.');
+            let current = curatedData;
+            for (const part of parts) {
+                current = current[part];
+            }
+            
+            // If the result is an object, collect all words from its sub-arrays
+            if (typeof current === 'object' && !Array.isArray(current)) {
+                let allWords = [];
+                function collect(obj) {
+                    for(const key in obj) {
+                        if (Array.isArray(obj[key])) {
+                            allWords = allWords.concat(obj[key]);
+                        } else if (typeof obj[key] === 'object') {
+                            collect(obj[key]);
+                        }
+                    }
+                }
+                collect(current);
+                return allWords;
+            }
+            
+            return current;
+        }
+        
+        async function loadCuratedLists() {
+            try {
+                const response = await fetch('SpellsWell-CuratedLists.json');
+                if (!response.ok) throw new Error('Network response was not ok.');
+                curatedData = await response.json();
+                curatedListsContainer.innerHTML = ''; // Clear previous
+                buildCuratedListsUI(curatedData, curatedListsContainer);
+            } catch (error) {
+                console.error("Failed to load curated lists:", error);
+                curatedListsContainer.innerHTML = `<p style="color: var(--neon-red);">Could not load curated lists.</p>`;
+            }
+        }
+
+
         let renderWordTable, saveWordsToBrowser, addWord, removeWord, downloadFile, clearWordList;
 
         // Event Listeners
@@ -575,12 +697,7 @@
             chooseWord();
         });
 
-        replayAudioButton.addEventListener('click', () => {
-            speak(chosenWord, speechRate, () => {
-                wordDisplayInput.focus();
-            });
-        });
-
+        replayAudioButton.addEventListener('click', () => speak(chosenWord, speechRate, () => wordDisplayInput.focus()));
         defineWordButton.addEventListener('click', getAndSpeakDefinition);
         nextButton.addEventListener('click', chooseWord);
 
@@ -612,9 +729,7 @@
         wordDisplayInput.addEventListener('input', (e) => {
             if (colorTrackingEnabled) {
                 const typedValue = wordDisplayInput.value;
-                wordDisplayInput.style.color = chosenWord.toLowerCase().startsWith(typedValue.toLowerCase()) 
-                    ? 'var(--neon-blue)' 
-                    : 'var(--neon-red)';
+                wordDisplayInput.style.color = chosenWord.toLowerCase().startsWith(typedValue.toLowerCase()) ? 'var(--neon-blue)' : 'var(--neon-red)';
             }
             if (e.inputType === 'insertText' && e.data) {
                 speak(e.data.toLowerCase(), speechRate * 1.5);
@@ -671,7 +786,26 @@
             localStorage.setItem('spellswell_colorTracking', colorTrackingEnabled);
         });
         
-        // Initial Setup
+        curatedListsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-curated-btn')) {
+                const path = e.target.dataset.path;
+                const wordsToAdd = getWordsFromPath(path);
+                
+                if (wordsToAdd && Array.isArray(wordsToAdd)) {
+                    let newWords = [];
+                    wordsToAdd.forEach(word => {
+                        const cleanedWord = word.trim().toLowerCase();
+                        if (cleanedWord && !words.includes(cleanedWord)) {
+                            newWords.push(cleanedWord);
+                        }
+                    });
+                    words.push(...newWords);
+                    renderWordTable();
+                    saveWordsToBrowser();
+                }
+            }
+        });
+
         function initialize() {
             renderWordTable = function() {
                 words.sort((a, b) => a.localeCompare(b));
@@ -734,6 +868,7 @@
             showLengthCheckbox.checked = showWordLength;
             colorTrackingCheckbox.checked = colorTrackingEnabled;
             renderWordTable();
+            loadCuratedLists();
         }
 
         initialize();
